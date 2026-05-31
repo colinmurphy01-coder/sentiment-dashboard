@@ -48,7 +48,6 @@
     .sentiment-row { margin-top: 8px; display: flex; gap: 8px; align-items: center; }
     .sentiment-label { font-size: 10px; color: rgba(255,255,255,0.25); }
     .error-msg { font-size: 10px; color: rgba(255,68,102,0.5); font-family: monospace; word-break: break-all; line-height: 1.4; margin-top: 8px; }
-    .awaiting { font-size: 10px; color: rgba(255,255,255,0.2); font-style: italic; }
     .skeleton { width: 60px; height: 20px; background: rgba(255,255,255,0.06); border-radius: 4px; animation: pulse 1.4s infinite; }
     .retry-btn { background: rgba(255,68,102,0.1); border: 1px solid rgba(255,68,102,0.3); color: #ff4466; font-size: 10px; padding: 4px 10px; border-radius: 4px; cursor: pointer; }
     .log { background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 12px 14px; max-height: 220px; overflow-y: auto; margin-bottom: 20px; }
@@ -59,7 +58,6 @@
     .stages { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-top: 20px; }
     .stage { font-size: 10px; padding: 4px 10px; border-radius: 4px; }
     .spinner { width: 12px; height: 12px; border: 2px solid #00ff88; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; margin-right: 8px; vertical-align: middle; }
-    .server-status { display: inline; }
     @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:0.8} }
     @keyframes spin { to{transform:rotate(360deg)} }
   </style>
@@ -71,9 +69,9 @@
     <div class="label">STAGE 1 — SENTIMENT ENGINE</div>
     <h1>News Sentiment <span>Scanner</span></h1>
     <div class="subtitle">
-      Claude AI · Macro/Geopolitical · 12 instruments
+      Claude AI · Macro/Geopolitical · 25 instruments
       <span id="last-scan"></span>
-      · <span id="server-status" class="server-status" style="color:rgba(255,255,255,0.3)">● unchecked</span>
+      · <span id="server-status" style="color:rgba(255,255,255,0.3)">● unchecked</span>
     </div>
   </div>
   <div style="display:flex;gap:8px;align-items:center">
@@ -100,18 +98,31 @@
 const SERVER = "https://sentiment-server-production-9c78.up.railway.app";
 
 const WATCHLIST = [
-  { ticker:"XOM", name:"ExxonMobil", sector:"Energy" },
-  { ticker:"CVX", name:"Chevron", sector:"Energy" },
-  { ticker:"CF",  name:"CF Industries", sector:"Fertilisers" },
-  { ticker:"NTR", name:"Nutrien", sector:"Fertilisers" },
-  { ticker:"MOS", name:"Mosaic", sector:"Fertilisers" },
-  { ticker:"LMT", name:"Lockheed Martin", sector:"Defence" },
-  { ticker:"RTX", name:"Raytheon", sector:"Defence" },
-  { ticker:"NATO",name:"NATO ETF", sector:"Defence ETF" },
-  { ticker:"DFND",name:"DFND ETF", sector:"Defence ETF" },
-  { ticker:"XLE", name:"Energy Select ETF", sector:"Energy ETF" },
-  { ticker:"ZIM", name:"ZIM Shipping", sector:"Shipping" },
-  { ticker:"GOLD",name:"Barrick Gold", sector:"Commodities" },
+  { ticker:"QQQA", name:"UBS Nasdaq-100", sector:"Tech ETF" },
+  { ticker:"VUAG", name:"Vanguard S&P 500", sector:"US Equity ETF" },
+  { ticker:"VEUA", name:"Vanguard FTSE Developed Europe", sector:"European Equity ETF" },
+  { ticker:"NATO", name:"Future of Defence ETF", sector:"Defence ETF" },
+  { ticker:"DFND", name:"iShares Aerospace & Defence", sector:"Defence ETF" },
+  { ticker:"NTR",  name:"Nutrien", sector:"Fertilisers" },
+  { ticker:"CF",   name:"CF Industries", sector:"Fertilisers" },
+  { ticker:"NVDA", name:"Nvidia", sector:"Semiconductors" },
+  { ticker:"GOOGL",name:"Alphabet", sector:"Big Tech" },
+  { ticker:"AVGO", name:"Broadcom", sector:"Semiconductors" },
+  { ticker:"MU",   name:"Micron Technology", sector:"Semiconductors" },
+  { ticker:"IREN", name:"IREN", sector:"AI Infrastructure" },
+  { ticker:"SATS", name:"EchoStar", sector:"Satellite/Comms" },
+  { ticker:"SMT",  name:"Scottish Mortgage Trust", sector:"Investment Trust" },
+  { ticker:"EWI",  name:"Edinburgh Worldwide Trust", sector:"Investment Trust" },
+  { ticker:"USA",  name:"Baillie Gifford US Growth", sector:"Investment Trust" },
+  { ticker:"MNTN", name:"Schiehallion Fund", sector:"Investment Trust" },
+  { ticker:"XOM",  name:"ExxonMobil", sector:"Energy" },
+  { ticker:"CVX",  name:"Chevron", sector:"Energy" },
+  { ticker:"XLE",  name:"Energy Select ETF", sector:"Energy ETF" },
+  { ticker:"ZIM",  name:"ZIM Shipping", sector:"Shipping" },
+  { ticker:"GLD",  name:"SPDR Gold Trust", sector:"Gold" },
+  { ticker:"SLV",  name:"iShares Silver Trust", sector:"Silver" },
+  { ticker:"GBTC", name:"Grayscale Bitcoin Trust", sector:"Crypto" },
+  { ticker:"GOLD", name:"Barrick Gold", sector:"Gold Miners" },
 ];
 
 const SIGNALS = {
@@ -128,9 +139,7 @@ let expanded = {};
 
 const sectors = ["All", ...Array.from(new Set(WATCHLIST.map(s => s.sector)))];
 
-function ts() {
-  return new Date().toLocaleTimeString();
-}
+function ts() { return new Date().toLocaleTimeString(); }
 
 function addLog(msg, type) {
   const logEl = document.getElementById("log");
@@ -144,17 +153,12 @@ function addLog(msg, type) {
 }
 
 function renderSectors() {
-  const el = document.getElementById("sectors");
-  el.innerHTML = sectors.map(s =>
+  document.getElementById("sectors").innerHTML = sectors.map(s =>
     '<button class="sector-btn' + (s === currentSector ? ' active' : '') + '" onclick="setSector(\'' + s + '\')">' + s + '</button>'
   ).join("");
 }
 
-function setSector(s) {
-  currentSector = s;
-  renderSectors();
-  renderGrid();
-}
+function setSector(s) { currentSector = s; renderSectors(); renderGrid(); }
 
 function renderSummary() {
   const counts = { BUY:0, SELL:0, HOLD:0, WATCH:0 };
@@ -278,7 +282,7 @@ async function scanAll() {
   const btn = document.getElementById("scan-btn");
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>SCANNING...';
-  addLog("=== Full watchlist scan started ===", "info");
+  addLog("=== Full watchlist scan started — 25 instruments ===", "info");
   const list = currentSector === "All" ? WATCHLIST : WATCHLIST.filter(s => s.sector === currentSector);
   for (const stock of list) {
     await analyseStock(stock.ticker);
