@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sentiment Scanner</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #080c10; color: #fff; font-family: system-ui, sans-serif; padding: 24px 16px; min-height: 100vh; }
+    h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+    h1 span { color: #00ff88; }
+    .subtitle { font-size: 11px; color: rgba(255,255,255,0.35); margin-bottom: 20px; }
+    .label { font-size: 10px; letter-spacing: 0.2em; color: rgba(0,255,136,0.7); margin-bottom: 4px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+    .btn { padding: 10px 20px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; }
+    .btn-primary { background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.35); color: #00ff88; }
+    .btn-secondary { background: transparent; border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.5); font-size: 11px; padding: 10px 14px; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .sectors { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
+    .sector-btn { padding: 5px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; border: 1px solid rgba(255,255,255,0.08); background: transparent; color: rgba(255,255,255,0.4); }
+    .sector-btn.active { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); color: #fff; }
+    .summary { display: flex; gap: 16px; padding: 10px 16px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 20px; flex-wrap: wrap; }
+    .summary-item { display: flex; align-items: center; gap: 6px; }
+    .summary-count { font-size: 18px; font-weight: 700; font-family: monospace; }
+    .summary-label { font-size: 10px; color: rgba(255,255,255,0.35); letter-spacing: 0.08em; }
+    .summary-total { margin-left: auto; font-size: 10px; color: rgba(255,255,255,0.25); align-self: center; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; margin-bottom: 24px; }
+    .card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 14px 16px; transition: all 0.3s ease; cursor: default; }
+    .card.clickable { cursor: pointer; }
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    .ticker { font-size: 15px; font-weight: 700; font-family: monospace; display: flex; align-items: center; gap: 8px; }
+    .geo-badge { font-size: 9px; background: rgba(255,100,50,0.2); border: 1px solid rgba(255,100,50,0.4); color: #ff8844; padding: 1px 6px; border-radius: 3px; letter-spacing: 0.1em; }
+    .stock-name { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+    .stock-sector { font-size: 10px; color: rgba(255,255,255,0.25); margin-top: 1px; }
+    .signal-badge { padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; font-family: monospace; }
+    .timeframe { font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 4px; text-align: right; }
+    .confidence-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .bar-track { flex: 1; height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+    .bar-label { font-size: 11px; font-family: monospace; min-width: 28px; }
+    .summary-text { font-size: 11px; color: rgba(255,255,255,0.45); line-height: 1.5; }
+    .expand-section { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06); display: none; }
+    .expand-section.open { display: block; }
+    .expand-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .expand-label { font-size: 10px; letter-spacing: 0.1em; margin-bottom: 4px; }
+    .expand-item { font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 3px; display: flex; gap: 6px; }
+    .expand-toggle { margin-top: 6px; font-size: 10px; color: rgba(255,255,255,0.2); text-align: right; }
+    .sentiment-row { margin-top: 8px; display: flex; gap: 8px; align-items: center; }
+    .sentiment-label { font-size: 10px; color: rgba(255,255,255,0.25); }
+    .error-msg { font-size: 10px; color: rgba(255,68,102,0.5); font-family: monospace; word-break: break-all; line-height: 1.4; margin-top: 8px; }
+    .awaiting { font-size: 10px; color: rgba(255,255,255,0.2); font-style: italic; }
+    .skeleton { width: 60px; height: 20px; background: rgba(255,255,255,0.06); border-radius: 4px; animation: pulse 1.4s infinite; }
+    .retry-btn { background: rgba(255,68,102,0.1); border: 1px solid rgba(255,68,102,0.3); color: #ff4466; font-size: 10px; padding: 4px 10px; border-radius: 4px; cursor: pointer; }
+    .log { background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 12px 14px; max-height: 220px; overflow-y: auto; margin-bottom: 20px; }
+    .log-title { font-size: 10px; color: rgba(255,255,255,0.3); letter-spacing: 0.1em; margin-bottom: 8px; }
+    .log-entry { font-size: 11px; margin-bottom: 3px; font-family: monospace; display: flex; gap: 10px; }
+    .log-time { color: rgba(255,255,255,0.2); min-width: 60px; }
+    .log-msg { word-break: break-all; }
+    .stages { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-top: 20px; }
+    .stage { font-size: 10px; padding: 4px 10px; border-radius: 4px; }
+    .spinner { width: 12px; height: 12px; border: 2px solid #00ff88; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; margin-right: 8px; vertical-align: middle; }
+    .server-status { display: inline; }
+    @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:0.8} }
+    @keyframes spin { to{transform:rotate(360deg)} }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="label">STAGE 1 — SENTIMENT ENGINE</div>
+    <h1>News Sentiment <span>Scanner</span></h1>
+    <div class="subtitle">
+      Claude AI · Macro/Geopolitical · 12 instruments
+      <span id="last-scan"></span>
+      · <span id="server-status" class="server-status" style="color:rgba(255,255,255,0.3)">● unchecked</span>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <button class="btn btn-secondary" onclick="checkServer()">Check</button>
+    <button class="btn btn-primary" id="scan-btn" onclick="scanAll()">SCAN ALL</button>
+  </div>
+</div>
+
+<div class="sectors" id="sectors"></div>
+<div class="summary" id="summary" style="display:none"></div>
+<div class="grid" id="grid"></div>
+<div class="log" id="log" style="display:none">
+  <div class="log-title">ACTIVITY LOG</div>
+  <div id="log-entries"></div>
+</div>
+<div class="stages">
+  <div class="stage" style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.3);color:#00ff88">1 · Sentiment</div>
+  <div class="stage" style="border:1px solid rgba(255,255,255,0.06);color:rgba(255,255,255,0.2)">2 · Event Filter</div>
+  <div class="stage" style="border:1px solid rgba(255,255,255,0.06);color:rgba(255,255,255,0.2)">3 · Momentum</div>
+  <div class="stage" style="border:1px solid rgba(255,255,255,0.06);color:rgba(255,255,255,0.2)">4 · Execute</div>
+</div>
+
+<script>
+const SERVER = "https://sentiment-server-production-9c78.up.railway.app";
+
+const WATCHLIST = [
+  { ticker:"XOM", name:"ExxonMobil", sector:"Energy" },
+  { ticker:"CVX", name:"Chevron", sector:"Energy" },
+  { ticker:"CF",  name:"CF Industries", sector:"Fertilisers" },
+  { ticker:"NTR", name:"Nutrien", sector:"Fertilisers" },
+  { ticker:"MOS", name:"Mosaic", sector:"Fertilisers" },
+  { ticker:"LMT", name:"Lockheed Martin", sector:"Defence" },
+  { ticker:"RTX", name:"Raytheon", sector:"Defence" },
+  { ticker:"NATO",name:"NATO ETF", sector:"Defence ETF" },
+  { ticker:"DFND",name:"DFND ETF", sector:"Defence ETF" },
+  { ticker:"XLE", name:"Energy Select ETF", sector:"Energy ETF" },
+  { ticker:"ZIM", name:"ZIM Shipping", sector:"Shipping" },
+  { ticker:"GOLD",name:"Barrick Gold", sector:"Commodities" },
+];
+
+const SIGNALS = {
+  BUY:  { color:"#00ff88", bg:"rgba(0,255,136,0.12)", border:"rgba(0,255,136,0.4)" },
+  SELL: { color:"#ff4466", bg:"rgba(255,68,102,0.12)", border:"rgba(255,68,102,0.4)" },
+  HOLD: { color:"#ffbb33", bg:"rgba(255,187,51,0.12)", border:"rgba(255,187,51,0.4)" },
+  WATCH:{ color:"#66aaff", bg:"rgba(102,170,255,0.12)", border:"rgba(102,170,255,0.4)" },
+};
+
+let results = {};
+let currentSector = "All";
+let scanning = false;
+let expanded = {};
+
+const sectors = ["All", ...Array.from(new Set(WATCHLIST.map(s => s.sector)))];
+
+function ts() {
+  return new Date().toLocaleTimeString();
+}
+
+function addLog(msg, type) {
+  const logEl = document.getElementById("log");
+  const entries = document.getElementById("log-entries");
+  logEl.style.display = "block";
+  const col = type === "error" ? "#ff4466" : type === "BUY" ? "#00ff88" : type === "SELL" ? "#ff4466" : type === "HOLD" ? "#ffbb33" : "rgba(255,255,255,0.4)";
+  const div = document.createElement("div");
+  div.className = "log-entry";
+  div.innerHTML = '<span class="log-time">' + ts() + '</span><span class="log-msg" style="color:' + col + '">' + msg + '</span>';
+  entries.insertBefore(div, entries.firstChild);
+}
+
+function renderSectors() {
+  const el = document.getElementById("sectors");
+  el.innerHTML = sectors.map(s =>
+    '<button class="sector-btn' + (s === currentSector ? ' active' : '') + '" onclick="setSector(\'' + s + '\')">' + s + '</button>'
+  ).join("");
+}
+
+function setSector(s) {
+  currentSector = s;
+  renderSectors();
+  renderGrid();
+}
+
+function renderSummary() {
+  const counts = { BUY:0, SELL:0, HOLD:0, WATCH:0 };
+  Object.values(results).forEach(r => { if (r && r.signal && counts[r.signal] !== undefined) counts[r.signal]++; });
+  const total = Object.values(counts).reduce((a,b) => a+b, 0);
+  const el = document.getElementById("summary");
+  if (!total) { el.style.display = "none"; return; }
+  el.style.display = "flex";
+  el.innerHTML = Object.entries(counts).map(([sig, count]) =>
+    '<div class="summary-item"><span class="summary-count" style="color:' + SIGNALS[sig].color + '">' + count + '</span><span class="summary-label">' + sig + '</span></div>'
+  ).join("") + '<div class="summary-total">' + total + ' / ' + WATCHLIST.length + ' analysed</div>';
+}
+
+function renderCard(stock) {
+  const r = results[stock.ticker];
+  const isLoading = r && r._loading;
+  const hasError = r && r._error;
+  const cfg = r && !hasError && !isLoading ? SIGNALS[r.signal] : null;
+  const isExpanded = expanded[stock.ticker];
+
+  let rightHtml = "";
+  if (isLoading) {
+    rightHtml = '<div class="skeleton"></div>';
+  } else if (hasError) {
+    rightHtml = '<div style="text-align:right"><div style="font-size:10px;color:#ff4466;margin-bottom:4px">ERROR</div><button class="retry-btn" onclick="analyseStock(\'' + stock.ticker + '\')">Retry</button></div>';
+  } else if (r) {
+    const s = SIGNALS[r.signal];
+    rightHtml = '<div style="text-align:right"><span class="signal-badge" style="background:' + s.bg + ';border:1px solid ' + s.border + ';color:' + s.color + '">' + r.signal + '</span><div class="timeframe">' + r.timeframe + '</div></div>';
+  } else {
+    rightHtml = '<button class="retry-btn" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5)" onclick="analyseStock(\'' + stock.ticker + '\')">Analyse</button>';
+  }
+
+  let bodyHtml = "";
+  if (r && !isLoading && !hasError) {
+    const conf = r.confidence;
+    const barColor = conf >= 7 ? "#00ff88" : conf >= 4 ? "#ffbb33" : "#ff4466";
+    const pct = (conf / 10) * 100;
+    bodyHtml += '<div class="confidence-bar"><div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;background:' + barColor + '"></div></div><span class="bar-label" style="color:' + barColor + '">' + conf + '/10</span></div>';
+    bodyHtml += '<div class="summary-text">' + r.summary + '</div>';
+    if (isExpanded) {
+      const cats = (r.catalysts || []).map(c => '<div class="expand-item"><span style="color:#00ff88">+</span>' + c + '</div>').join("");
+      const risks = (r.risks || []).map(rk => '<div class="expand-item"><span style="color:#ff4466">-</span>' + rk + '</div>').join("");
+      bodyHtml += '<div class="expand-section open"><div class="expand-grid"><div><div class="expand-label" style="color:rgba(0,255,136,0.6)">CATALYSTS</div>' + cats + '</div><div><div class="expand-label" style="color:rgba(255,68,102,0.6)">RISKS</div>' + risks + '</div></div><div class="sentiment-row"><span class="sentiment-label">Sentiment:</span><span style="font-size:11px;color:' + (cfg ? cfg.color : "#fff") + '">' + r.sentiment + '</span></div></div>';
+    }
+    bodyHtml += '<div class="expand-toggle" onclick="toggleExpand(\'' + stock.ticker + '\')">' + (isExpanded ? "collapse" : "expand") + '</div>';
+  }
+  if (hasError) {
+    bodyHtml += '<div class="error-msg">' + r._error + '</div>';
+  }
+
+  const borderColor = hasError ? "rgba(255,68,102,0.3)" : cfg ? cfg.border : "rgba(255,255,255,0.08)";
+  const shadow = cfg ? "0 0 20px " + cfg.bg : "none";
+
+  return '<div class="card' + (r && !hasError ? ' clickable' : '') + '" id="card-' + stock.ticker + '" style="border-color:' + borderColor + ';box-shadow:' + shadow + '" onclick="handleCardClick(event,\'' + stock.ticker + '\')">' +
+    '<div class="card-header"><div><div class="ticker">' + stock.ticker + (r && !hasError && r.geopolitical_flag ? ' <span class="geo-badge">GEO</span>' : '') + '</div><div class="stock-name">' + stock.name + '</div><div class="stock-sector">' + stock.sector + '</div></div>' +
+    '<div>' + rightHtml + '</div></div>' + bodyHtml + '</div>';
+}
+
+function handleCardClick(e, ticker) {
+  if (e.target.tagName === "BUTTON") return;
+  const r = results[ticker];
+  if (r && !r._error && !r._loading) toggleExpand(ticker);
+}
+
+function toggleExpand(ticker) {
+  expanded[ticker] = !expanded[ticker];
+  renderGrid();
+}
+
+function renderGrid() {
+  const list = currentSector === "All" ? WATCHLIST : WATCHLIST.filter(s => s.sector === currentSector);
+  document.getElementById("grid").innerHTML = list.map(renderCard).join("");
+}
+
+async function checkServer() {
+  try {
+    const res = await fetch(SERVER + "/health");
+    if (res.ok) {
+      document.getElementById("server-status").style.color = "#00ff88";
+      document.getElementById("server-status").textContent = "● live";
+      addLog("Railway server connected OK", "BUY");
+    } else {
+      document.getElementById("server-status").style.color = "#ff4466";
+      document.getElementById("server-status").textContent = "● offline";
+      addLog("Server returned " + res.status, "error");
+    }
+  } catch(e) {
+    document.getElementById("server-status").style.color = "#ff4466";
+    document.getElementById("server-status").textContent = "● offline";
+    addLog("Connection failed: " + e.message, "error");
+  }
+}
+
+async function analyseStock(ticker) {
+  const stock = WATCHLIST.find(s => s.ticker === ticker);
+  if (!stock) return;
+  results[ticker] = { _loading: true };
+  renderGrid();
+  addLog("Analysing " + ticker + "...", "info");
+  try {
+    const res = await fetch(SERVER + "/analyse", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticker: stock.ticker, name: stock.name, sector: stock.sector }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "HTTP " + res.status);
+    results[ticker] = data;
+    addLog(ticker + " -> " + data.signal + " (" + data.confidence + "/10)", data.signal);
+  } catch(e) {
+    results[ticker] = { _error: e.message };
+    addLog(ticker + " FAILED: " + e.message, "error");
+  }
+  renderGrid();
+  renderSummary();
+}
+
+async function scanAll() {
+  if (scanning) return;
+  scanning = true;
+  const btn = document.getElementById("scan-btn");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>SCANNING...';
+  addLog("=== Full watchlist scan started ===", "info");
+  const list = currentSector === "All" ? WATCHLIST : WATCHLIST.filter(s => s.sector === currentSector);
+  for (const stock of list) {
+    await analyseStock(stock.ticker);
+    await new Promise(r => setTimeout(r, 600));
+  }
+  const now = new Date().toLocaleTimeString();
+  document.getElementById("last-scan").textContent = " · Last scan " + now;
+  addLog("=== Scan complete ===", "info");
+  btn.disabled = false;
+  btn.innerHTML = "SCAN ALL";
+  scanning = false;
+}
+
+renderSectors();
+renderGrid();
+</script>
+</body>
+</html>
